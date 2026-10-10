@@ -6,6 +6,7 @@
     "QUESTIONID", "SECTIONID", "EXAMID", "QNAME",
     "OPT1", "OPT2", "OPT3", "OPT4", "ANSWER", "HINT"
   ];
+  // IMAGEID is optional for older workbooks; missing or blank values default to 0.
   const allowedSections = new Set(["MA", "SCI", "SS", "MATH"]);
   const allowedAnswers = new Set(["A", "B", "C", "D"]);
   let supabase = null;
@@ -58,6 +59,7 @@
           const missing = requiredHeaders.filter((header) => !headers.includes(header));
           if (missing.length) throw new Error(`Missing required columns: ${missing.join(", ")}`);
           const index = Object.fromEntries(requiredHeaders.map((h) => [h, headers.indexOf(h)]));
+          index.IMAGEID = headers.indexOf("IMAGEID");
           const rows = raw.slice(1).filter((row) => row.some((value) => cellText(value) !== ""));
           const questions = rows.map((row, idx) => ({
             _excelRow: idx + 2,
@@ -70,7 +72,8 @@
             OPT3: cellText(row[index.OPT3]),
             OPT4: cellText(row[index.OPT4]),
             ANSWER: cellText(row[index.ANSWER]).toUpperCase(),
-            HINT: cellText(row[index.HINT])
+            HINT: cellText(row[index.HINT]),
+            IMAGEID: index.IMAGEID >= 0 ? cellText(row[index.IMAGEID]) : "0"
           }));
           resolve(questions);
         } catch (error) {
@@ -91,6 +94,9 @@
       if (q.EXAMID !== requestedExamId) errors.push(`Row ${row}: EXAMID ${q.EXAMID} does not match ${requestedExamId}.`);
       if (!allowedSections.has(q.SECTIONID)) errors.push(`Row ${row}: SECTIONID must be MA, SCI, SS or MATH.`);
       if (!allowedAnswers.has(q.ANSWER)) errors.push(`Row ${row}: ANSWER must be A, B, C or D.`);
+      if (q.IMAGEID !== "" && (!/^\d+$/.test(q.IMAGEID) || !Number.isSafeInteger(Number(q.IMAGEID)) || Number(q.IMAGEID) < 0)) {
+        errors.push(`Row ${row}: IMAGEID must be a whole number greater than or equal to 0.`);
+      }
       const duplicateKey = `${q.EXAMID}::${q.QUESTIONID}`;
       if (q.QUESTIONID && seen.has(duplicateKey)) errors.push(`Row ${row}: duplicate QUESTIONID ${q.QUESTIONID}.`);
       if (q.QUESTIONID) seen.add(duplicateKey);
@@ -108,7 +114,7 @@
     const wrap = $("previewTableWrap");
     wrap.classList.remove("hidden");
     const shown = questions.slice(0, 12);
-    const cols = ["QUESTIONID", "SECTIONID", "EXAMID", "QNAME", "OPT1", "OPT2", "OPT3", "OPT4", "ANSWER"];
+    const cols = ["QUESTIONID", "SECTIONID", "EXAMID", "QNAME", "OPT1", "OPT2", "OPT3", "OPT4", "ANSWER", "IMAGEID"];
     const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
     wrap.innerHTML = `<table><thead><tr>${cols.map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>${
       shown.map(q => `<tr>${cols.map(c => `<td>${esc(q[c])}</td>`).join("")}</tr>`).join("")
@@ -206,7 +212,8 @@
       opt3: q.OPT3,
       opt4: q.OPT4,
       answer_key: q.ANSWER,
-      hint: q.HINT || null
+      hint: q.HINT || null,
+      image_id: Number(q.IMAGEID || 0)
     }));
     const button = $("importButton");
     button.disabled = true;
@@ -372,7 +379,17 @@
   function questionText(q) { return q.qname ?? q.QNAME ?? q.question ?? q.question_text ?? ""; }
   function optionText(q, n) { return q[`opt${n}`] ?? q[`OPT${n}`] ?? ""; }
   function normalizeQuestion(q) {
-    return { ...q, id: questionId(q), qname: questionText(q), opt1: optionText(q, 1), opt2: optionText(q, 2), opt3: optionText(q, 3), opt4: optionText(q, 4), section_id: q.section_id ?? q.SECTIONID ?? "" };
+    return {
+      ...q,
+      id: questionId(q),
+      qname: questionText(q),
+      opt1: optionText(q, 1),
+      opt2: optionText(q, 2),
+      opt3: optionText(q, 3),
+      opt4: optionText(q, 4),
+      section_id: q.section_id ?? q.SECTIONID ?? "",
+      image_id: Number(q.image_id ?? q.IMAGEID ?? q.imageid ?? 0) || 0
+    };
   }
   function showStudentError(message) { setMessage("studentLoginMessage", message, "error"); }
   function paintQuestionNav() {
@@ -389,11 +406,114 @@
       nav.appendChild(b);
     });
   }
+  // Exam images are stored in a public GitHub Pages folder named IMGS + Exam ID.
+  // Try common extensions because IMAGEID does not store the file extension.
+  const imageExtensions = ["png", "jpg", "jpeg", "webp", "gif"];
+  let imageLoadSequence = 0;
+
+  function currentExamIdForImages() {
+    return String(currentAttempt?.exam_id ?? $("studentExamId")?.value ?? "").trim();
+  }
+
+  function imageFolderUrl() {
+    const examId = currentExamIdForImages();
+    if (!examId) return "";
+    return new URL(`IMGS${encodeURIComponent(examId)}/`, document.baseURI).href;
+  }
+
+  function loadQuestionImage(imageId) {
+    return new Promise((resolve, reject) => {
+      const folder = imageFolderUrl();
+      const id = Number(imageId);
+      if (!folder || !Number.isSafeInteger(id) || id <= 0) {
+        reject(new Error("This question does not have a valid image ID."));
+        return;
+      }
+      let index = 0;
+      const tryNext = () => {
+        if (index >= imageExtensions.length) {
+          reject(new Error(`Image ${id} was not found in ${`IMGS${currentExamIdForImages()}`}. Check its filename and extension.`));
+          return;
+        }
+        const ext = imageExtensions[index++];
+        const img = new Image();
+        img.onload = () => resolve({ src: img.src, extension: ext });
+        img.onerror = tryNext;
+        img.src = new URL(`${id}.${ext}`, folder).href;
+      };
+      tryNext();
+    });
+  }
+
+  function closeQuestionImageModal() {
+    const modal = $("questionImageModal");
+    modal.hidden = true;
+    $("questionImageModalContent").replaceChildren();
+    document.body.classList.remove("image-modal-open");
+  }
+
+  async function openQuestionImageModal(q, questionNumber) {
+    const modal = $("questionImageModal");
+    const content = $("questionImageModalContent");
+    const title = $("questionImageModalTitle");
+    const sequence = ++imageLoadSequence;
+    title.textContent = `Question ${questionNumber} · Image ${q.image_id}`;
+    content.replaceChildren();
+    const loading = document.createElement("p");
+    loading.className = "muted";
+    loading.textContent = "Loading image…";
+    content.appendChild(loading);
+    modal.hidden = false;
+    document.body.classList.add("image-modal-open");
+
+    console.log("Question image mapping:", {
+  displayedQuestion: questionNumber,
+  questionId: q.question_id,
+  imageId: q.image_id,
+  folder: imageFolderUrl()
+  });
+  
+    try {
+      const loaded = await loadQuestionImage(q.image_id);
+      if (sequence !== imageLoadSequence || modal.hidden) return;
+      const img = document.createElement("img");
+      img.src = loaded.src;
+      img.alt = `Image for question ${questionNumber}`;
+      content.replaceChildren(img);
+    } catch (error) {
+      if (sequence !== imageLoadSequence || modal.hidden) return;
+      const message = document.createElement("p");
+      message.className = "image-modal-message";
+      message.textContent = `${error.message} Supported extensions: ${imageExtensions.map(x => "." + x).join(", ")}.`;
+      content.replaceChildren(message);
+    }
+  }
+
+  $("closeQuestionImageModal").addEventListener("click", closeQuestionImageModal);
+  $("questionImageModal").addEventListener("click", event => {
+    if (event.target === $("questionImageModal")) closeQuestionImageModal();
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !$("questionImageModal").hidden) closeQuestionImageModal();
+  });
+
   function renderQuestion() {
     const q = examQuestions[questionIndex];
     if (!q) return;
     $("questionCounter").textContent = `Question ${questionIndex + 1} of ${examQuestions.length} · Section ${q.section_id || "—"}`;
     $("questionText").textContent = q.qname;
+    // Show the image control only when Supabase returns a positive image_id.
+    const oldImageButton = $("questionImageButton");
+    if (oldImageButton) oldImageButton.remove();
+    if (Number(q.image_id) > 0) {
+      const imageButton = document.createElement("button");
+      imageButton.id = "questionImageButton";
+      imageButton.type = "button";
+      imageButton.className = "question-image-action";
+      imageButton.innerHTML = '<span class="image-symbol" aria-hidden="true">🖼️</span><span>View Question Image</span>';
+      imageButton.addEventListener("click", () => openQuestionImageModal(q, questionIndex + 1));
+      $("questionText").insertAdjacentElement("afterend", imageButton);
+    }
     const list = $("optionList"); list.innerHTML = "";
     [1, 2, 3, 4].forEach(n => {
       const val = `OPT${n}`;
@@ -431,6 +551,14 @@
     const client = getClient();
     const { data, error } = await client.rpc("exam_get_questions", { p_attempt_id: attempt.attempt_id });
     if (error) throw error;
+    console.table(
+      (Array.isArray(data) ? data : data?.questions || []).map(q => ({
+        question_id: q.question_id,
+        question_row_id: q.question_row_id,
+        image_id: q.image_id,
+        IMAGEID: q.IMAGEID
+      }))
+    );
     examQuestions = unwrapQuestions(data).map(normalizeQuestion);
     if (!examQuestions.length) throw new Error("No questions were returned for this exam.");
     if (examQuestions.some(q => !q.id || !q.qname)) throw new Error("Question data is missing the row ID or question text.");
@@ -596,6 +724,7 @@
   }
   $("submitExamButton").addEventListener("click", () => submitExam(false));
   $("returnHomeButton").addEventListener("click", () => {
+    closeQuestionImageModal();
     if (timerHandle) clearInterval(timerHandle); timerHandle = null;
     currentAttempt = null; latestResult = null; examQuestions = []; draftSelections = {}; savedStatuses = {};
     $("studentLoginForm").reset(); showScreen("homeScreen");
