@@ -460,7 +460,7 @@
     phoneInput.setCustomValidity("");
   });
   examIdInput.addEventListener("input", () => {
-    if (examIdInput.value.length > 6) examIdInput.value = examIdInput.value.slice(0, 6);
+    if (examIdInput.value.length > 8) examIdInput.value = examIdInput.value.slice(0, 8);
   });
 
   $("studentLoginForm").addEventListener("submit", async event => {
