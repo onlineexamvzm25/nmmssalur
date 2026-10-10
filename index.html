@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#173b67">
+  <title>Online Examination System</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="brand">
+      <div class="brand-mark" aria-hidden="true">OE</div>
+      <div>
+        <h1>Online Examination</h1>
+        <p>Secure • Simple • Student-friendly</p>
+      </div>
+    </header>
+
+    <section id="homeScreen" class="panel home-panel">
+      <h2>Welcome</h2>
+      <p class="muted">Choose how you want to continue.</p>
+      <div class="choice-grid">
+        <button id="adminChoice" class="choice-card" type="button">
+          <span class="choice-icon" aria-hidden="true">⚙</span>
+          <span class="choice-title">Admin Login</span>
+          <span class="choice-desc">Upload and manage exam questions</span>
+        </button>
+        <button id="studentChoice" class="choice-card" type="button">
+          <span class="choice-icon" aria-hidden="true">🎓</span>
+          <span class="choice-title">Student Login</span>
+          <span class="choice-desc">Enter an exam and start answering</span>
+        </button>
+      </div>
+      <p class="footer-note">Choose your login to continue.</p>
+    </section>
+
+    <section id="adminLoginScreen" class="panel hidden" aria-labelledby="adminLoginTitle">
+      <button class="back-link" type="button" data-go-home>← Back to login choices</button>
+      <h2 id="adminLoginTitle">Admin Login</h2>
+      <p class="muted">Sign in to upload an Excel question sheet.</p>
+      <form id="adminLoginForm">
+        <label for="adminUsername">Username</label>
+        <input id="adminUsername" name="username" type="text" value="MAHESH" autocomplete="username" required>
+        <label for="adminPassword">Password</label>
+        <input id="adminPassword" name="password" type="password" autocomplete="current-password" placeholder="Enter admin password" required>
+        <button class="primary-btn" type="submit">Login</button>
+        <p id="loginMessage" class="message" role="status"></p>
+      </form>
+    </section>
+
+    <section id="uploadScreen" class="panel hidden" aria-labelledby="uploadTitle">
+      <div class="panel-heading">
+        <div>
+          <h2 id="uploadTitle">Upload Exam Questions</h2>
+          <p class="muted">Upload your prepared Excel workbook.</p>
+        </div>
+        <button id="logoutButton" class="secondary-btn" type="button">Logout</button>
+      </div>
+
+      <div class="notice">
+        <strong>Required columns:</strong>
+        <span>QUESTIONID, SECTIONID, EXAMID, QNAME, OPT1, OPT2, OPT3, OPT4, ANSWER, HINT</span>
+        <small>ANSWER must be A, B, C or D. HINT is used only in the result PDF.</small>
+      </div>
+
+      <form id="uploadForm">
+        <label for="examId">Exam ID</label>
+        <input id="examId" name="examId" type="text" inputmode="numeric" placeholder="e.g. 10102026" required>
+        <label for="excelFile">Excel file (.xlsx or .xls)</label>
+        <input id="excelFile" name="excelFile" type="file" accept=".xlsx,.xls" required>
+        <p id="fileInfo" class="muted small"></p>
+        <button id="previewButton" class="secondary-btn full-width" type="button">Validate & Preview</button>
+        <div id="previewSummary" class="preview-summary hidden"></div>
+        <div id="previewTableWrap" class="preview-table-wrap hidden"></div>
+        <button id="importButton" class="primary-btn hidden" type="submit">Confirm & Import Questions</button>
+        <p id="uploadMessage" class="message" role="status"></p>
+      </form>
+    </section>
+
+    <section id="studentLoginScreen" class="panel hidden" aria-labelledby="studentLoginTitle">
+      <button class="back-link" type="button" data-go-home>← Back to login choices</button>
+      <h2 id="studentLoginTitle">Student Login</h2>
+      <p class="muted">Enter your details and the shared exam password.</p>
+      <form id="studentLoginForm">
+        <label for="studentName">Student name</label>
+        <input id="studentName" name="studentName" type="text" autocomplete="name"
+               minlength="3" maxlength="12" required
+               title="Student name must contain 3 to 12 characters.">
+        <label for="schoolName">School name</label>
+        <input id="schoolName" name="schoolName" type="text"
+               minlength="4" maxlength="20" required
+               title="School name must contain 4 to 20 characters.">
+        <label for="phoneNo">Phone number</label>
+        <input id="phoneNo" name="phoneNo" type="tel" inputmode="numeric" autocomplete="tel"
+               minlength="10" maxlength="10" pattern="[0-9]{10}" required
+               title="Enter exactly 10 digits (numbers only).">
+        <label for="studentExamId">Exam ID</label>
+        <input id="studentExamId" name="examId" type="text" maxlength="6" required
+               title="Exam ID can contain any characters, up to 6 characters.">
+        <label for="studentExamPassword">Exam password</label>
+        <input id="studentExamPassword" name="examPassword" type="password" autocomplete="off" required>
+        <button id="studentLoginButton" class="primary-btn" type="submit">Register / Continue to Exam</button>
+        <p id="studentLoginMessage" class="message" role="status"></p>
+      </form>
+    </section>
+
+    <section id="examScreen" class="panel hidden" aria-labelledby="examTitle">
+      <div class="panel-heading">
+        <div><h2 id="examTitle">Online Examination</h2><p id="examMeta" class="muted"></p></div>
+        <div id="examTimer" class="timer-chip" aria-live="polite">--:--</div>
+      </div>
+      <div id="questionStatusLegend" class="status-legend"><span><i class="dot gray"></i> Not saved</span><span><i class="dot green"></i> Saved</span><span><i class="dot yellow"></i> Review</span></div>
+      <div id="questionNav" class="question-nav" aria-label="Question navigation"></div>
+      <div id="questionCard" class="question-card">
+        <h3 id="questionText"></h3>
+        <div id="optionList" class="option-list"></div>
+        <p id="questionCounter" class="muted small question-counter-bottom"></p>
+      </div>
+      <p id="examMessage" class="message" role="status"></p>
+      <div class="exam-actions">
+        <button id="previousQuestion" class="secondary-btn" type="button">Previous</button>
+        <button id="skipQuestion" class="secondary-btn" type="button">Skip</button>
+        <button id="reviewQuestion" class="secondary-btn" type="button">Mark for Review</button>
+        <button id="saveNextQuestion" class="primary-btn" type="button">Save &amp; Next</button>
+      </div>
+      <button id="submitExamButton" class="submit-btn" type="button">Submit Exam</button>
+    </section>
+
+    <section id="resultScreen" class="panel hidden" aria-labelledby="resultTitle">
+      <h2 id="resultTitle">Exam Result</h2>
+      <p id="resultSummary" class="muted"></p>
+      <div id="resultDetails"></div>
+      <h3 class="section-heading">Section-wise Correct Answers</h3>
+      <div id="sectionMarks" class="section-marks"></div>
+      <p id="sectionMessage" class="message" role="status"></p>
+      <button id="downloadResultPdf" class="secondary-btn full-width" type="button">Download Result PDF</button>
+      <button id="returnHomeButton" class="primary-btn full-width" type="button">Return to Home</button>
+    </section>
+
+    <div id="toast" class="toast hidden" role="status"></div>
+  </main>
+
+  <footer class="site-footer">Online Examination System</footer>
+
+  <!-- Configure your Supabase URL and anon/publishable key in js/config.js. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
