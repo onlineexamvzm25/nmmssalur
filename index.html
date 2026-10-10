@@ -6,6 +6,23 @@
   <meta name="theme-color" content="#173b67">
   <title>Online Examination System</title>
   <link rel="stylesheet" href="css/styles.css">
+
+  <style>
+    .question-image-action { display:inline-flex; align-items:center; gap:8px; margin:0 0 14px; padding:9px 13px; border:1px solid #b8cbe0; border-radius:10px; background:#eef5ff; color:#173b67; font-weight:600; cursor:pointer; }
+    .question-image-action:hover { background:#dceaff; }
+    .question-image-action .image-symbol { font-size:1.2rem; }
+    .image-modal { position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:18px; background:rgba(8,18,32,.78); }
+    .image-modal[hidden] { display:none !important; }
+    .image-modal-card { position:relative; width:min(900px,100%); max-height:92vh; overflow:auto; background:#fff; border-radius:14px; padding:16px; box-shadow:0 18px 60px rgba(0,0,0,.35); }
+    .image-modal-top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    .image-modal-title { margin:0; color:#173b67; font-size:1rem; }
+    .image-modal-close { border:0; border-radius:8px; background:#173b67; color:white; padding:8px 12px; cursor:pointer; font-size:1rem; }
+    .image-modal-content { display:flex; align-items:center; justify-content:center; min-height:120px; }
+    .image-modal-content img { display:block; max-width:100%; max-height:72vh; width:auto; height:auto; object-fit:contain; }
+    .image-modal-message { color:#991b1b; text-align:center; padding:24px 8px; }
+    body.image-modal-open { overflow:hidden; }
+  </style>
+
 </head>
 <body>
   <main class="app-shell">
@@ -81,24 +98,24 @@
     <section id="studentLoginScreen" class="panel hidden" aria-labelledby="studentLoginTitle">
       <button class="back-link" type="button" data-go-home>← Back to login choices</button>
       <h2 id="studentLoginTitle">Student Login</h2>
-      <p class="muted">Enter your details and the shared exam password.</p>
+      <p class="muted">Enter Your Details and Exam Password.</p>
       <form id="studentLoginForm">
-        <label for="studentName">Student name</label>
+        <label for="studentName">Student Name</label>
         <input id="studentName" name="studentName" type="text" autocomplete="name"
                minlength="3" maxlength="12" required
                title="Student name must contain 3 to 12 characters.">
-        <label for="schoolName">School name</label>
+        <label for="schoolName">School Name</label>
         <input id="schoolName" name="schoolName" type="text"
                minlength="4" maxlength="20" required
                title="School name must contain 4 to 20 characters.">
-        <label for="phoneNo">Phone number</label>
+        <label for="phoneNo">Phone Number</label>
         <input id="phoneNo" name="phoneNo" type="tel" inputmode="numeric" autocomplete="tel"
                minlength="10" maxlength="10" pattern="[0-9]{10}" required
                title="Enter exactly 10 digits (numbers only).">
         <label for="studentExamId">Exam ID</label>
         <input id="studentExamId" name="examId" type="text" maxlength="8" required
                title="Exam ID can contain any characters, up to 8 characters.">
-        <label for="studentExamPassword">Exam password</label>
+        <label for="studentExamPassword">Exam Password</label>
         <input id="studentExamPassword" name="examPassword" type="password" autocomplete="off" required>
         <button id="studentLoginButton" class="primary-btn" type="submit">Register / Continue to Exam</button>
         <p id="studentLoginMessage" class="message" role="status"></p>
@@ -137,6 +154,17 @@
       <button id="downloadResultPdf" class="secondary-btn full-width" type="button">Download Result PDF</button>
       <button id="returnHomeButton" class="primary-btn full-width" type="button">Return to Home</button>
     </section>
+
+
+    <div id="questionImageModal" class="image-modal" role="dialog" aria-modal="true" aria-labelledby="questionImageModalTitle" hidden>
+      <div class="image-modal-card">
+        <div class="image-modal-top">
+          <h2 id="questionImageModalTitle" class="image-modal-title">Question Image</h2>
+          <button id="closeQuestionImageModal" class="image-modal-close" type="button" aria-label="Close image">✕ Close</button>
+        </div>
+        <div id="questionImageModalContent" class="image-modal-content"></div>
+      </div>
+    </div>
 
     <div id="toast" class="toast hidden" role="status"></div>
   </main>
