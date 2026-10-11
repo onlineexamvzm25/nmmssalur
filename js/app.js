@@ -296,7 +296,7 @@
     const v = optionValue(value);
     return v ? String.fromCharCode(64 + Number(v.slice(-1))) : "Not answered";
   }
-  function downloadResultPdf() {
+  function downloadResultPdf(options = {}) {
     if (!latestResult) return;
     const JsPdf = window.jspdf?.jsPDF;
     if (!JsPdf) { $("sectionMessage").textContent = "PDF library did not load. Check your internet connection."; return; }
@@ -350,14 +350,83 @@
       writeLine(`QUESTION ${index + 1}  |  SECTION: ${section}`, "", { bold: true, gap: 6, size: 11 });
       writeLine("Question: ", question, { gap: 5.2 });
       [1, 2, 3, 4].forEach(n => writeLine(`${String.fromCharCode(64+n)}. `, detail[`opt${n}`] ?? detail[`OPT${n}`] ?? q[`opt${n}`] ?? "", { gap: 5.0 }));
-      writeLine("Student Response: ", `${selectedLetter}${selectedOpt ? ` — ${selectedText}` : ""}`, { gap: 5.2 });
-      writeLine("Correct Answer Key: ", `${keyLetter}${keyOpt ? ` — ${keyText}` : keyRaw ? ` — ${keyRaw}` : "Not provided"}`, { gap: 5.2 });
+      // Color-code the student's response and draw vector icons so they render
+      // reliably in the PDF across desktop and mobile PDF viewers.
+      const responseIsCorrect = Boolean(selectedOpt && keyOpt && selectedOpt === keyOpt);
+      const responseIsWrong = Boolean(selectedOpt && keyOpt && selectedOpt !== keyOpt);
+      const responseLabel = selectedOpt
+        ? `${selectedLetter} — ${selectedText}`
+        : "Not answered";
+
+      ensureSpace(8);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+
+      // Draw a green tick for correct answers, a red cross for wrong answers,
+      // and a muted dash for unanswered questions.
+      const iconX = left + 1.2;
+      const iconY = y - 1.2;
+      if (responseIsCorrect) {
+        doc.setDrawColor(21, 128, 61);
+        doc.setLineWidth(0.8);
+        doc.line(iconX, iconY, iconX + 1.6, iconY + 1.7);
+        doc.line(iconX + 1.6, iconY + 1.7, iconX + 4.5, iconY - 2.0);
+        doc.setTextColor(21, 128, 61);
+      } else if (responseIsWrong) {
+        doc.setDrawColor(185, 28, 28);
+        doc.setLineWidth(0.8);
+        doc.line(iconX, iconY - 1.8, iconX + 4.2, iconY + 2.2);
+        doc.line(iconX, iconY + 2.2, iconX + 4.2, iconY - 1.8);
+        doc.setTextColor(185, 28, 28);
+      } else {
+        doc.setDrawColor(100, 116, 139);
+        doc.setLineWidth(0.7);
+        doc.line(iconX, iconY, iconX + 4, iconY);
+        doc.setTextColor(100, 116, 139);
+      }
+
+      const responseLines = doc.splitTextToSize(`Student Response: ${responseLabel}`, contentWidth - 8);
+      ensureSpace(responseLines.length * 5.2 + 2);
+      doc.text(responseLines, left + 8, y);
+      y += responseLines.length * 5.2 + 2;
+      doc.setTextColor(0, 0, 0);
+
+      // Keep the correct answer key green for quick review.
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(21, 128, 61);
+      const keyValue = `${keyLetter}${keyOpt ? ` — ${keyText}` : keyRaw ? ` — ${keyRaw}` : "Not provided"}`;
+      const keyLines = doc.splitTextToSize(`Correct Answer Key: ${keyValue}`, contentWidth);
+      ensureSpace(keyLines.length * 5.2 + 2);
+      doc.text(keyLines, left, y);
+      y += keyLines.length * 5.2 + 2;
+      doc.setTextColor(0, 0, 0);
+
       writeLine("Hint: ", hint, { gap: 5.2 });
       ensureSpace(8); doc.setDrawColor(145); doc.setLineWidth(0.35); doc.line(left, y + 1, pageWidth - right, y + 1); y += 8;
     });
-    doc.save(`exam_result_${String(r.exam_id || "exam").replace(/[^a-zA-Z0-9_-]/g, "")}.pdf`);
+    const filename = `exam_result_${String(r.exam_id || "exam").replace(/[^a-zA-Z0-9_-]/g, "")}.pdf`;
+    const pdfBlob = doc.output("blob");
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+
+    // Open in a tab created directly from the student's submit action when possible.
+    if (options.openWindow && !options.openWindow.closed) {
+      options.openWindow.location.href = pdfUrl;
+    }
+
+    // Always trigger a download so the student has a saved copy.
+    const link = document.createElement("a");
+    link.href = pdfUrl;
+    link.download = filename;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    // Give the browser time to start both the PDF tab and download.
+    window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
   }
-  $("downloadResultPdf").addEventListener("click", downloadResultPdf);
+  $("downloadResultPdf").addEventListener("click", () => downloadResultPdf());
 
   function unwrapQuestions(data) {
     if (Array.isArray(data)) return data;
@@ -681,6 +750,14 @@
   async function submitExam(auto = false) {
     if (!currentAttempt || submitting) return;
     if (!auto && !window.confirm("Submit your exam now? Unsaved selections will not be saved.")) return;
+
+    // Pre-open a tab during the direct submit click to reduce popup-blocking.
+    // Automatic timeout submission may not be permitted to open a new tab.
+    let resultPdfWindow = null;
+    if (!auto) {
+      try { resultPdfWindow = window.open("about:blank", "_blank"); } catch (_) {}
+    }
+
     submitting = true;
     $("submitExamButton").disabled = true;
     try {
@@ -718,8 +795,21 @@
         question_review: questionReview
       } : null;
       showScreen("resultScreen");
+
+      // Automatically download the result PDF as soon as marks are shown.
+      // Also open it in the pre-opened tab when the browser permits.
+      if (latestResult) {
+        downloadResultPdf({ openWindow: resultPdfWindow });
+        resultPdfWindow = null;
+      } else if (resultPdfWindow && !resultPdfWindow.closed) {
+        resultPdfWindow.close();
+      }
+
       toast(auto ? "Time ended. Exam submitted." : "Exam submitted successfully.");
-    } catch (e) { setMessage("examMessage", e.message || "Submission failed.", "error"); }
+    } catch (e) {
+      if (resultPdfWindow && !resultPdfWindow.closed) resultPdfWindow.close();
+      setMessage("examMessage", e.message || "Submission failed.", "error");
+    }
     finally { submitting = false; $("submitExamButton").disabled = false; }
   }
   $("submitExamButton").addEventListener("click", () => submitExam(false));
