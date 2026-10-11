@@ -232,3 +232,47 @@ body:has(#examScreen:not(.hidden)) .app-shell > .brand {
     padding: 9px 12px;
   }
 }
+
+
+/* Exam-themed welcome background and readable login choices */
+body {
+  background:
+    linear-gradient(135deg, rgba(9, 35, 68, .62), rgba(22, 75, 125, .38)),
+    url("../assets/exam-background.png") center center / cover fixed no-repeat;
+  background-color: #173b67;
+}
+.app-shell { position: relative; }
+.brand {
+  padding: 14px 18px;
+  border: 1px solid rgba(255,255,255,.42);
+  border-radius: 18px;
+  background: rgba(255,255,255,.88);
+  backdrop-filter: blur(8px);
+}
+.home-panel {
+  background: rgba(255,255,255,.91);
+  border-color: rgba(255,255,255,.72);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 18px 50px rgba(5, 22, 45, .24);
+}
+.home-panel .choice-card {
+  background: rgba(255,255,255,.96);
+  border-color: #d5e2f1;
+  box-shadow: 0 8px 22px rgba(23,59,103,.08);
+}
+.home-panel .choice-card:hover,
+.home-panel .choice-card:focus-visible {
+  background: #f4f9ff;
+  border-color: #245b9e;
+  box-shadow: 0 12px 28px rgba(23,59,103,.15);
+}
+.panel:not(.home-panel) {
+  background: rgba(255,255,255,.97);
+  backdrop-filter: blur(10px);
+}
+.brand h1 { color: #173b67; }
+.brand p { color: #475569; }
+@media (max-width: 600px) {
+  body { background-attachment: scroll; }
+  .brand { padding: 12px 14px; }
+}
