@@ -408,7 +408,7 @@
   }
   // Exam images are stored in a public GitHub Pages folder named IMGS + Exam ID.
   // Try common extensions because IMAGEID does not store the file extension.
-  const imageExtensions = ["png", "jpg", "jpeg", "webp", "gif"];
+  const imageExtensions = ["png", "jpg", "jpeg", "webp", "gif","PNG", "JPG", "JPEG", "WEBP", "GIF"];
   let imageLoadSequence = 0;
 
   function currentExamIdForImages() {
