@@ -2,6 +2,28 @@
   "use strict";
 
   const $ = (id) => document.getElementById(id);
+
+  // Make the manual PDF button easy to notice after results are displayed.
+  const pdfAttentionStyle = document.createElement("style");
+  pdfAttentionStyle.textContent = `
+    #downloadResultPdf.pdf-attention {
+      background: linear-gradient(135deg, #ffdf35, #ff9f1c) !important;
+      color: #172033 !important;
+      border: 2px solid #fff2a6 !important;
+      font-weight: 800 !important;
+      box-shadow: 0 0 0 0 rgba(255, 183, 0, .75), 0 0 18px rgba(255, 183, 0, .8) !important;
+      animation: pdfButtonPulse 1.15s ease-in-out infinite;
+      transform-origin: center;
+    }
+    #downloadResultPdf.pdf-attention:hover { filter: brightness(1.08); }
+    @keyframes pdfButtonPulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 183, 0, .65), 0 0 12px rgba(255, 183, 0, .65); }
+      50% { transform: scale(1.045); box-shadow: 0 0 0 7px rgba(255, 183, 0, 0), 0 0 24px rgba(255, 183, 0, .95); }
+    }
+    @media (prefers-reduced-motion: reduce) { #downloadResultPdf.pdf-attention { animation: none; } }
+  `;
+  document.head.appendChild(pdfAttentionStyle);
+
   const requiredHeaders = [
     "QUESTIONID", "SECTIONID", "EXAMID", "QNAME",
     "OPT1", "OPT2", "OPT3", "OPT4", "ANSWER", "HINT"
@@ -426,7 +448,10 @@
     // Give the browser time to start both the PDF tab and download.
     window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
   }
-  $("downloadResultPdf").addEventListener("click", () => downloadResultPdf());
+  $("downloadResultPdf").addEventListener("click", () => {
+    $("downloadResultPdf").classList.remove("pdf-attention");
+    downloadResultPdf();
+  });
 
   function unwrapQuestions(data) {
     if (Array.isArray(data)) return data;
@@ -751,13 +776,7 @@
     if (!currentAttempt || submitting) return;
     if (!auto && !window.confirm("Submit your exam now? Unsaved selections will not be saved.")) return;
 
-    // Pre-open a tab during the direct submit click to reduce popup-blocking.
-    // Automatic timeout submission may not be permitted to open a new tab.
-    let resultPdfWindow = null;
-    if (!auto) {
-      try { resultPdfWindow = window.open("about:blank", "_blank"); } catch (_) {}
-    }
-
+    // PDF download/open is manual only to avoid WebView/browser errors.
     submitting = true;
     $("submitExamButton").disabled = true;
     try {
@@ -796,14 +815,11 @@
       } : null;
       showScreen("resultScreen");
 
-      // Automatically download the result PDF as soon as marks are shown.
-      // Also open it in the pre-opened tab when the browser permits.
-      if (latestResult) {
-        downloadResultPdf({ openWindow: resultPdfWindow });
-        resultPdfWindow = null;
-      } else if (resultPdfWindow && !resultPdfWindow.closed) {
-        resultPdfWindow.close();
-      }
+      // PDF download stays manual. Highlight the button only when the complete PDF is ready.
+      const pdfButton = $("downloadResultPdf");
+      pdfButton.classList.toggle("pdf-attention", Boolean(latestResult));
+      if (resultPdfWindow && !resultPdfWindow.closed) resultPdfWindow.close();
+      resultPdfWindow = null;
 
       toast(auto ? "Time ended. Exam submitted." : "Exam submitted successfully.");
     } catch (e) {
