@@ -200,3 +200,35 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 @media (max-width: 520px) {
   .section-marks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+
+/* Mobile exam UI refinements */
+body:has(#examScreen:not(.hidden)) .app-shell > .brand {
+  display: none;
+}
+
+#questionCounter {
+  color: #245b9e;
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1.4;
+  margin-top: 10px;
+}
+
+#examTimer.timer-chip {
+  color: #8b0000;
+  font-size: 1.65rem;
+  font-weight: 850;
+  padding: 10px 15px;
+}
+
+@media (max-width: 600px) {
+  #questionCounter {
+    font-size: 1.2rem;
+  }
+
+  #examTimer.timer-chip {
+    font-size: 1.55rem;
+    padding: 9px 12px;
+  }
+}
